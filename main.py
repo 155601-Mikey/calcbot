@@ -23,9 +23,10 @@ def run():
 
 Thread(target=run).start()
 
-# Load token from .env file
+# Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+CURRENCY_API_KEY = os.getenv("CURRENCY_API_KEY")
 
 # Initialize the bot
 intents = discord.Intents.default()
@@ -118,23 +119,23 @@ async def plot_command(interaction: discord.Interaction, equation: str):
 @app_commands.describe(query="The conversion query (e.g., 10 cm to inches, USD to EUR).")
 async def convert_command(interaction: discord.Interaction, query: str):
     try:
-        # Simple unit conversion using SymPy
         if " to " in query:
             amount, target_unit = query.split(" to ")
-            result = sp.convert_to(sp.sympify(amount), target_unit)
-            await interaction.response.send_message(f"{query} = {result}")
-        else:
-            # Example API call for currency conversion
-            if " to " in query:
-                amount, target_currency = query.split(" to ")
-                response = requests.get(f"https://api.exchangerate-api.com/v4/latest/{amount.split()[-1]}")
+            if amount.strip().isnumeric():  # Simple unit conversion
+                result = sp.convert_to(sp.sympify(amount), target_unit)
+                await interaction.response.send_message(f"{query} = {result}")
+            else:  # Currency conversion
+                amount_value, source_currency = amount.split()
+                response = requests.get(f"https://v6.exchangerate-api.com/v6/{CURRENCY_API_KEY}/latest/{source_currency.upper()}")
                 data = response.json()
-                rate = data["rates"].get(target_currency.upper())
-                if rate:
-                    converted = float(amount.split()[0]) * rate
-                    await interaction.response.send_message(f"{query} = {converted:.2f} {target_currency.upper()}")
+                if response.status_code == 200 and target_unit.upper() in data["conversion_rates"]:
+                    rate = data["conversion_rates"][target_unit.upper()]
+                    converted = float(amount_value) * rate
+                    await interaction.response.send_message(f"{query} = {converted:.2f} {target_unit.upper()}")
                 else:
-                    await interaction.response.send_message(f"Could not find currency: `{target_currency}`")
+                    await interaction.response.send_message(f"Could not convert currency: `{query}`")
+        else:
+            await interaction.response.send_message("Invalid query format. Use 'amount unit to target_unit' or 'amount currency to target_currency'.")
     except Exception as e:
         await interaction.response.send_message(f"Error converting `{query}`: {e}")
 
@@ -160,20 +161,23 @@ async def setvar_command(interaction: discord.Interaction, name: str, value: str
 # Help Command
 @client.tree.command(name="help", description="Get a list of commands.")
 async def help_command(interaction: discord.Interaction):
-    help_text = """
-    **Commands:**
-    - `/ping`: Check if the bot is online.
-    - `/math [expression]`: Solve math expressions or equations (e.g., `/math 2+2`, `/math x+6=8`, `/math √4`, `/math π*2`, `/math 3²`).
-    - `/plot [equation]`: Plot a mathematical function (e.g., `/plot y=x**2`).
-    - `/convert [query]`: Convert units or currencies (e.g., `/convert 10 cm to inches`, `/convert USD to EUR`).
-    - `/history`: View your recent math history.
-    - `/setvar [name] [value]`: Define custom variables (e.g., `/setvar a 5`).
-    - `/help`: Get this help message.
-    """
-    await interaction.response.send_message(help_text)
+    embed = discord.Embed(
+        title="CalcBot Help",
+        description="A powerful math and conversion bot. Below are the available commands:",
+        color=0x00FF00
+    )
+    embed.add_field(name="/ping", value="Check if the bot is online.", inline=False)
+    embed.add_field(name="/math [expression]", value="Solve math expressions or equations.", inline=False)
+    embed.add_field(name="/plot [equation]", value="Plot a mathematical function.", inline=False)
+    embed.add_field(name="/convert [query]", value="Convert units or currencies.", inline=False)
+    embed.add_field(name="/history", value="View your recent math history.", inline=False)
+    embed.add_field(name="/setvar [name] [value]", value="Define custom variables.", inline=False)
+    embed.add_field(name="/help", value="Display this help message.", inline=False)
+    embed.add_field(name="Links", value="[Website](https://calcbot.vercel.app) | [Source Code](https://github.com/155601-Mikey/calcbot) | [Issues](https://github.com/155601-Mikey/calcbot/issues)", inline=False)
+    await interaction.response.send_message(embed=embed)
 
 # Run the bot
-if TOKEN is None:
-    print("Error: DISCORD_BOT_TOKEN is not set in .env file.")
+if TOKEN is None or CURRENCY_API_KEY is None:
+    print("Error: Missing environment variables for DISCORD_BOT_TOKEN or CURRENCY_API_KEY.")
 else:
     client.run(TOKEN)
