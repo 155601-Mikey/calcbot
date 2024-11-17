@@ -1,6 +1,6 @@
 # CalcBot - A Discord Calculator Bot
 
-This is a Discord bot that allows you to perform various mathematical tasks and conversions directly within your server.
+This is a Discord bot that allows you to perform various mathematical tasks and conversions directly within your server and DM's.
 
 **Features:**
 
