@@ -1,91 +1,113 @@
-````markdown
-# CalcBot: A Versatile Discord Math and Conversion Bot
+# CalcBot - A Discord Calculator Bot
 
-This is CalcBot, a powerful Discord bot that empowers you to perform various mathematical tasks and conversions directly within your server and DMs. Streamline your workflow and enhance mathematical exploration with its diverse capabilities!
+
+
+This is a Discord bot that allows you to perform various mathematical tasks and conversions directly within your server and DM's.
+
+
 
 **Features:**
 
-* **Math Powerhouse:** Solve simple and complex expressions/equations using `/math`. Supports basic arithmetic, exponentiation, radicals, pi (π), and more.
-* **Visualization Maestro:** Generate plots of mathematical functions with the intuitive `/plot` command.
-* **Unit & Currency Guru:** Effortlessly convert between various units and currencies using `/convert`.
-* **Calculation History:** Access your recent interactions with `/history`.
-* **Custom Variable Wizard:** Define and manage custom variables with `/setvar` for streamlined calculations.
-* **Help at Hand:** Get this help message and detailed instructions with `/help`.
 
-**Installation (Prerequisites):**
 
-1. **Python 3.x:** Ensure you have Python 3.x installed ([https://www.python.org/downloads/](https://www.google.com/url?sa=E&source=gmail&q=https://www.google.com/url?sa=E%26source=gmail%26q=https://www.python.org/downloads/)). Check with `python3 --version` in your terminal.
+* **Basic Calculations:** Solve simple and complex math expressions using the `/math` command. Supports basic arithmetic operations, exponentiation, radicals, pi (π), and more. 
 
-2. **Required Libraries:** Install necessary libraries using `pip`:
+* **Equation Solving:** Solve simple linear equations (e.g., `x+6=8`).
 
-   ```bash
-   pip install discord sympy matplotlib flask requests python-dotenv
-````
+* **Function Plotting:**  Visualize mathematical functions using the `/plot` command. 
 
-**Setup:**
+* **Unit & Currency Conversion:** Convert between different units and currencies with the `/convert` command.
 
-1.  **Create a Discord Application:** Visit the Discord Developer Portal ([https://discord.com/developers/applications](https://www.google.com/url?sa=E&source=gmail&q=https://www.google.com/url?sa=E%26source=gmail%26q=https://www.google.com/url?sa=E%26source=gmail%26q=https://www.google.com/url?sa=E%26source=gmail%26q=https://discord.com/developers/applications)) and create a new application.
+* **Calculation History:** Access your recent calculations using the `/history` command.
 
-2.  **Bot Token:** In the "Bot" section of your application, create a bot user and copy the generated token (needed later).
+* **Custom Variables:** Define and use custom variables with the `/setvar` command.
 
-3.  **Currency Conversion API Key (Optional):** If you plan to use currency conversions, sign up for a free API key at [https://exchangerate-api.com/](https://www.google.com/url?sa=E&source=gmail&q=https://www.google.com/url?sa=E%26source=gmail%26q=https://www.google.com/url?sa=E%26source=gmail%26q=https://exchangerate-api.com/).
+* **Help:** Get this help message with the `/help` command.
 
-**Configuration (Create a `.env` file):**
 
-  - Create a file named `.env` in the root directory of your project.
-
-  - Paste the following lines, replacing placeholders with your actual values:
-
-    ```
-    DISCORD_BOT_TOKEN=YOUR_BOT_TOKEN
-    CURRENCY_API_KEY=YOUR_CURRENCY_API_KEY (Optional)
-    ```
-
-**Running the Bot:**
-
-1.  Open your terminal or command prompt and navigate to your project directory.
-
-2.  Run the following command:
-
-    ```bash
-    python calcbot.py
-    ```
-
-This will start CalcBot and connect it to your Discord server.
-
-**Using the Bot:**
-
-All commands in CalcBot utilize the prefix `!`. Here's a breakdown of the available commands:
-
-  * `!ping`: Checks the bot's latency.
-  * `!math [expression]`: Solves a math expression or equation (e.g., `!math 2+2`, `!math x^2 + 3x = 5`).
-  * `!plot [equation]`: Creates a plot of a mathematical function (e.g., `!plot y=sin(x)`).
-  * `!convert [query]`: Performs unit or currency conversion (e.g., `!convert 10 cm to inches`, `!convert 10 USD to EUR`).
-  * `!history`: Shows your recent math history.
-  * `!setvar [name] [value]`: Sets a custom variable (e.g., `!setvar a 5`, `!math a + 3`).
-  * `!help`: Displays a list of commands and their descriptions.
 
 **Invite Link:**
 
-Click the link below to invite CalcBot to your Discord server:
+
+
+Click the link below to invite the bot to your Discord server:
+
+
 
 [Invite Bot](https://discord.com/oauth2/authorize?client_id=1088234408894550118&permissions=412317211712&integration_type=0&scope=bot+applications.commands)
 
+
+
 **Permissions Required:**
 
-  * **Add Reactions:** To react to user messages for confirmation.
-  * **Send Messages:** To send calculation results and messages.
-  * **Use External Emojis:** To use emojis for displaying plots and conversions.
-  * **View Channel History:** To access user messages for commands like `/history`.
-  * **Manage Messages:**  To delete user messages after successful calculations (optional).
+
+
+* **Add Reactions:** To react to user messages for confirmation.
+
+* **Send Messages:** To send calculation results and messages.
+
+* **Use External Emojis:** To use emojis for displaying plots and conversions.
+
+* **View Channel History:** To access user messages for commands like `/history`.
+
+* **Manage Messages:**  To delete user messages after successful calculations (optional).
+
+
+
+**Usage:**
+
+
+
+Each command requires a prefix followed by the specific arguments:
+
+
+
+* Prefix: `/` (forward slash)
+
+* Arguments: Additional information needed for the command. 
+
+
+
+For detailed information on each command and its syntax, refer to the **Commands** section below.
+
+
+
+**Commands:**
+
+
+
+| Command                | Description                                          | Examples                                         |
+
+|------------------------|-----------------------------------------------------|-------------------------------------------------|
+
+| `/ping`                 | Checks if the bot is online.                          | `/ping`                                         |
+
+| `/math [expression]`     | Solves math expressions or equations.                 | `/math 2+2`, `/math x+6=8`, `/math √4`,           |
+
+|                          |                                                    | `/math π*2`, `/math 3²`                          |
+
+| `/plot [equation]`      | Plots a mathematical function.                       | `/plot y=x**2`                                 |
+
+| `/convert [query]`      | Converts between units or currencies.                | `/convert 10 cm to inches`, `/convert USD to EUR` |
+
+| `/history`              | View your recent math history.                        | `/history`                                         |
+
+| `/setvar [name] [value]`  | Define custom variables for calculations.           | `/setvar a 5`, `/math a + 3`                      |
+
+| `/help`                 | Get this help message.                               | `/help`                                         |
+
+
 
 **Contributing:**
 
+
+
 Feel free to fork this repository and contribute improvements or additional features.
+
+
 
 **License:**
 
-This project is licensed under the MIT License.
 
-```
-```
+
+This project is licensed under the MIT License.  Refer to the LICENSE file for details.
