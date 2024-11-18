@@ -77,23 +77,14 @@ For detailed information on each command and its syntax, refer to the **Commands
 
 
 | Command                | Description                                          | Examples                                         |
-
 |------------------------|-----------------------------------------------------|-------------------------------------------------|
-
 | `/ping`                 | Checks if the bot is online.                          | `/ping`                                         |
-
 | `/math [expression]`     | Solves math expressions or equations.                 | `/math 2+2`, `/math x+6=8`, `/math √4`,           |
-
 |                          |                                                    | `/math π*2`, `/math 3²`                          |
-
 | `/plot [equation]`      | Plots a mathematical function.                       | `/plot y=x**2`                                 |
-
 | `/convert [query]`      | Converts between units or currencies.                | `/convert 10 cm to inches`, `/convert USD to EUR` |
-
 | `/history`              | View your recent math history.                        | `/history`                                         |
-
 | `/setvar [name] [value]`  | Define custom variables for calculations.           | `/setvar a 5`, `/math a + 3`                      |
-
 | `/help`                 | Get this help message.                               | `/help`                                         |
 
 
@@ -101,13 +92,10 @@ For detailed information on each command and its syntax, refer to the **Commands
 **Contributing:**
 
 
-
 Feel free to fork this repository and contribute improvements or additional features.
 
 
-
 **License:**
-
 
 
 This project is licensed under the MIT License.  Refer to the LICENSE file for details.
