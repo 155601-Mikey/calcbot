@@ -1,183 +1,211 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import sympy as sp  # For solving equations
+import sympy as sp
 import math
-import matplotlib.pyplot as plt
+import random
 import os
-import io
 import requests
+import logging
+import ast
+import re
+from typing import Dict, Any
 from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('MathBot')
 
 # Flask app for uptime monitoring
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "I'm alive!"
+    return "Math Bot is alive!"
 
-def run():
+def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-Thread(target=run).start()
+# Start Flask in a separate thread
+Thread(target=run_flask, daemon=True).start()
 
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 CURRENCY_API_KEY = os.getenv("CURRENCY_API_KEY")
 
+# Global constants
+DEFAULT_THEME = 0x00FF00
+MAX_HISTORY_LENGTH = 10
+SUPPORTED_THEMES = {"green": 0x00FF00, "blue": 0x0000FF, "red": 0xFF0000}
+
+# Improved calculation function with safer parsing
+def safe_evaluate(expression: str) -> float:
+    """
+    Safely evaluate mathematical expressions using ast module
+    Supports basic math operations and some mathematical functions
+    """
+    # Replace mathematical notation
+    expression = expression.replace("√", "sqrt").replace("π", "pi") \
+                           .replace("²", "**2").replace("³", "**3")
+    
+    # Allowed nodes and functions
+    allowed_nodes = {
+        ast.Num, ast.BinOp, ast.UnaryOp, 
+        ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow
+    }
+    
+    allowed_funcs = {
+        'sqrt': math.sqrt, 'sin': math.sin, 'cos': math.cos, 
+        'tan': math.tan, 'log': math.log, 'exp': math.exp,
+        'pi': math.pi, 'e': math.e
+    }
+
+    def is_safe(node):
+        """Check if the AST node is safe"""
+        return type(node) in allowed_nodes
+
+    try:
+        parsed = ast.parse(expression, mode='eval')
+        
+        # Validate AST
+        for node in ast.walk(parsed):
+            if not is_safe(node):
+                raise ValueError("Unsafe expression")
+        
+        # Compile and evaluate
+        compiled = compile(parsed, '<string>', 'eval')
+        result = eval(compiled, {"__builtins__": {}}, allowed_funcs)
+        
+        return round(result, 10)  # Limit decimal precision
+    
+    except Exception as e:
+        logger.error(f"Calculation error: {e}")
+        return f"Error: {e}"
+
 # Initialize the bot
 intents = discord.Intents.default()
+intents.message_content = True
 client = commands.Bot(command_prefix="!", intents=intents)
+tree = client.tree
 
-# Global history and variables storage
-math_history = []
-custom_variables = {}
+# User data storage (consider moving to a persistent database in production)
+user_data: Dict[int, Dict[str, Any]] = {}
 
 @client.event
 async def on_ready():
-    print(f"Bot is ready! Logged in as {client.user}")
+    """Bot startup and command synchronization"""
+    logger.info(f"Bot is ready! Logged in as {client.user}")
     try:
         synced = await client.tree.sync()
-        print(f"Synced {len(synced)} commands!")
+        logger.info(f"Synced {len(synced)} commands")
     except Exception as e:
-        print(f"Error syncing commands: {e}")
+        logger.error(f"Command sync error: {e}")
 
-# Helper function to process and evaluate math expressions
-def evaluate_expression(expression):
-    global custom_variables
+def update_user_history(user_id: int, calculation: str):
+    """Update user's calculation history"""
+    user_data.setdefault(user_id, {
+        "history": [], 
+        "theme": DEFAULT_THEME
+    })
+    
+    # Maintain a max history length
+    if len(user_data[user_id]["history"]) >= MAX_HISTORY_LENGTH:
+        user_data[user_id]["history"].pop(0)
+    
+    user_data[user_id]["history"].append(calculation)
 
-    # Replace common symbols for easier parsing
-    expression = expression.replace('√', 'sqrt')  # Square root
-    expression = expression.replace('π', 'pi')    # Pi
-    expression = expression.replace('²', '**2')  # Squared
-
-    # Include custom variables
+# Math Commands
+@tree.command(name="calculate", description="Perform calculations safely")
+@app_commands.describe(expression="Mathematical expression to calculate")
+async def calculate_command(interaction: discord.Interaction, expression: str):
+    """Safe calculator command"""
     try:
-        expression = sp.sympify(expression, locals=custom_variables)
-    except Exception:
-        return f"Invalid expression: `{expression}`"
-
-    try:
-        if "=" in expression:
-            lhs, rhs = expression.split("=")
-            lhs, rhs = sp.sympify(lhs), sp.sympify(rhs)
-            solution = sp.solve(lhs - rhs)
-            return f"Solution(s): {solution}"
-        else:
-            result = eval(expression, {"__builtins__": None}, {**math.__dict__, "pi": math.pi, "sqrt": math.sqrt})
-            math_history.append(f"{expression} = {result}")
-            return f"Result: {result}"
-    except Exception as e:
-        return f"Error solving `{expression}`: {e}"
-
-# Ping Command
-@client.tree.command(name="ping", description="Check the bot's latency.")
-async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message(f"Pong! Latency: {round(client.latency * 1000)}ms")
-
-# Math Command
-@client.tree.command(name="math", description="Solve a math equation or expression.")
-@app_commands.describe(expression="The math expression or equation to solve (e.g., 2+2, √4, π*2, x²+2=5).")
-async def math_command(interaction: discord.Interaction, expression: str):
-    result = evaluate_expression(expression)
-    await interaction.response.send_message(result)
-
-# Graph Plotting Command
-@client.tree.command(name="plot", description="Plot a mathematical function.")
-@app_commands.describe(equation="The function to plot (e.g., y=x**2).")
-async def plot_command(interaction: discord.Interaction, equation: str):
-    try:
-        x = sp.Symbol('x')
-        expr = sp.sympify(equation, locals=custom_variables)
-        f = sp.lambdify(x, expr, modules=["math"])
+        result = safe_evaluate(expression)
         
-        # Generate the plot
-        x_vals = range(-10, 11)
-        y_vals = [f(x) for x in x_vals]
-        plt.plot(x_vals, y_vals)
-        plt.title(f"Plot of {equation}")
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.grid()
-
-        # Save plot to a buffer
-        buffer = io.BytesIO()
-        plt.savefig(buffer, format="png")
-        buffer.seek(0)
-        plt.close()
-
-        # Send the plot as a file
-        await interaction.response.send_message(file=discord.File(buffer, filename="plot.png"))
+        # Update user's history
+        update_user_history(
+            interaction.user.id, 
+            f"{expression} = {result}"
+        )
+        
+        await interaction.response.send_message(f"Result: `{result}`")
     except Exception as e:
-        await interaction.response.send_message(f"Error plotting `{equation}`: {e}")
+        await interaction.response.send_message(f"Calculation error: {e}")
 
-# Unit and Currency Conversion Command
-@client.tree.command(name="convert", description="Convert units or currencies.")
-@app_commands.describe(query="The conversion query (e.g., 10 cm to inches, USD to EUR).")
-async def convert_command(interaction: discord.Interaction, query: str):
+@tree.command(name="solve", description="Solve mathematical equations")
+@app_commands.describe(equation="Equation to solve (e.g., x**2 + 5 = 10)")
+async def solve_command(interaction: discord.Interaction, equation: str):
+    """Equation solver using SymPy"""
     try:
-        if " to " in query:
-            amount, target_unit = query.split(" to ")
-            if amount.strip().isnumeric():  # Simple unit conversion
-                result = sp.convert_to(sp.sympify(amount), target_unit)
-                await interaction.response.send_message(f"{query} = {result}")
-            else:  # Currency conversion
-                amount_value, source_currency = amount.split()
-                response = requests.get(f"https://v6.exchangerate-api.com/v6/{CURRENCY_API_KEY}/latest/{source_currency.upper()}")
-                data = response.json()
-                if response.status_code == 200 and target_unit.upper() in data["conversion_rates"]:
-                    rate = data["conversion_rates"][target_unit.upper()]
-                    converted = float(amount_value) * rate
-                    await interaction.response.send_message(f"{query} = {converted:.2f} {target_unit.upper()}")
-                else:
-                    await interaction.response.send_message(f"Could not convert currency: `{query}`")
+        # Replace common mathematical notations
+        equation = equation.replace("=", "-").replace("²", "**2")
+        
+        solutions = sp.solve(equation)
+        
+        if not solutions:
+            await interaction.response.send_message("No solutions found.")
         else:
-            await interaction.response.send_message("Invalid query format. Use 'amount unit to target_unit' or 'amount currency to target_currency'.")
+            formatted_solutions = ", ".join(str(sol) for sol in solutions)
+            await interaction.response.send_message(f"Solutions: `{formatted_solutions}`")
+    
     except Exception as e:
-        await interaction.response.send_message(f"Error converting `{query}`: {e}")
+        await interaction.response.send_message(f"Equation solving error: {e}")
 
-# Math History Command
-@client.tree.command(name="history", description="Show your recent math history.")
-async def history_command(interaction: discord.Interaction):
-    if math_history:
-        history = "\n".join(math_history[-5:])
-        await interaction.response.send_message(f"**Recent Math History:**\n{history}")
-    else:
-        await interaction.response.send_message("No math history found!")
-
-# Custom Variables Command
-@client.tree.command(name="setvar", description="Set a custom variable.")
-@app_commands.describe(name="Variable name", value="Variable value.")
-async def setvar_command(interaction: discord.Interaction, name: str, value: str):
+@tree.command(name="convert", description="Unit conversion")
+@app_commands.describe(
+    amount="Amount to convert", 
+    from_unit="Original unit", 
+    to_unit="Target unit"
+)
+async def convert_command(
+    interaction: discord.Interaction, 
+    amount: float, 
+    from_unit: str, 
+    to_unit: str
+):
+    """Robust unit conversion"""
     try:
-        custom_variables[name] = sp.sympify(value)
-        await interaction.response.send_message(f"Set `{name}` to `{value}` successfully!")
+        converted = sp.convert_to(amount * sp.Unit(from_unit), sp.Unit(to_unit))
+        await interaction.response.send_message(
+            f"{amount} {from_unit} = {converted:.4f} {to_unit}"
+        )
+    except sp.errors.UnitError:
+        await interaction.response.send_message(
+            f"Invalid units. Check '{from_unit}' and '{to_unit}'."
+        )
     except Exception as e:
-        await interaction.response.send_message(f"Error setting variable `{name}`: {e}")
+        await interaction.response.send_message(f"Conversion error: {e}")
 
-# Help Command
-@client.tree.command(name="help", description="Get a list of commands.")
-async def help_command(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="CalcBot Help",
-        description="A powerful math and conversion bot. Below are the available commands:",
-        color=0x00FF00
-    )
-    embed.add_field(name="/ping", value="Check if the bot is online.", inline=False)
-    embed.add_field(name="/math [expression]", value="Solve math expressions or equations.", inline=False)
-    embed.add_field(name="/plot [equation]", value="Plot a mathematical function.", inline=False)
-    embed.add_field(name="/convert [query]", value="Convert units or currencies.", inline=False)
-    embed.add_field(name="/history", value="View your recent math history.", inline=False)
-    embed.add_field(name="/setvar [name] [value]", value="Define custom variables.", inline=False)
-    embed.add_field(name="/help", value="Display this help message.", inline=False)
-    embed.add_field(name="Links", value="[Website](https://calcbot.vercel.app) | [Source Code](https://github.com/155601-Mikey/calcbot) | [Issues](https://github.com/155601-Mikey/calcbot/issues)", inline=False)
-    await interaction.response.send_message(embed=embed)
+@tree.command(name="history", description="View recent calculations")
+async def history_command(interaction: discord.Interaction):
+    """Display user's calculation history"""
+    user_history = user_data.get(interaction.user.id, {}).get("history", [])
+    
+    if user_history:
+        history_text = "\n".join(user_history[-5:])
+        embed = discord.Embed(
+            title="📊 Calculation History", 
+            description=f"```\n{history_text}```", 
+            color=DEFAULT_THEME
+        )
+        await interaction.response.send_message(embed=embed)
+    else:
+        await interaction.response.send_message("No calculation history found.")
 
 # Run the bot
-if TOKEN is None or CURRENCY_API_KEY is None:
-    print("Error: Missing environment variables for DISCORD_BOT_TOKEN or CURRENCY_API_KEY.")
-else:
-    client.run(TOKEN)
+def main():
+    if not TOKEN:
+        logger.error("No Discord bot token provided!")
+        return
+    
+    try:
+        client.run(TOKEN)
+    except Exception as e:
+        logger.error(f"Bot runtime error: {e}")
+
+if __name__ == "__main__":
+    main()
